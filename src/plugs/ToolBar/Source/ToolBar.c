@@ -171,9 +171,9 @@
 #define IAO_COPYWHITEASMASK  2 //IDI_ICONARROW2 icon used.
 
 //Icon size
-#define BIS_ICON16          0 //16x16 icons.
-#define BIS_ICON32          1 //32x32 icons.
-#define BIS_ICON24          2 //24x24 icons.
+#define BIS_ICON16          0 //32x32 icons.
+#define BIS_ICON32          1 //48x48 icons.
+#define BIS_ICON24          2 //40x40 icons.
 
 //Grayed icons
 #define GI_SYSTEM          0 //System drawing.
@@ -1145,18 +1145,18 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
   {
     if (nBigIcons == BIS_ICON32)
     {
-      sizeIcon.cx=32 /*GetSystemMetrics(SM_CXICON)*/;
-      sizeIcon.cy=32 /*GetSystemMetrics(SM_CYICON)*/;
+      sizeIcon.cx=48 /*GetSystemMetrics(SM_CXICON)*/;
+      sizeIcon.cy=48 /*GetSystemMetrics(SM_CYICON)*/;
     }
     else if (nBigIcons == BIS_ICON24)
     {
-      sizeIcon.cx=24;
-      sizeIcon.cy=24;
+      sizeIcon.cx=40;
+      sizeIcon.cy=40;
     }
     else
     {
-      sizeIcon.cx=16 /*GetSystemMetrics(SM_CXSMICON)*/;
-      sizeIcon.cy=16 /*GetSystemMetrics(SM_CYSMICON)*/;
+      sizeIcon.cx=32 /*GetSystemMetrics(SM_CXSMICON)*/;
+      sizeIcon.cy=32 /*GetSystemMetrics(SM_CYSMICON)*/;
     }
     hStack->hImageList=ImageList_Create(sizeIcon.cx, sizeIcon.cy, (nIconsBit == 16?ILC_COLOR16:ILC_COLOR32)|ILC_MASK, 0, 0);
     ImageList_SetBkColor(hStack->hImageList, GetSysColor(COLOR_BTNFACE));
