@@ -508,7 +508,7 @@ POINT ptPreviewScroll;
 DWORD dwPreviewShowDialog=SW_MAXIMIZE;
 int lpZoom[]={25, 50, 75, 100, 150, 200, 300, 400, 500, PREVIEWZOOM_FIT, PREVIEWZOOM_WIDTH};
 int nPreviewZoomMaxIndex=8;
-int nPreviewZoomValue=110;
+int nPreviewZoomValue=100;
 int nPreviewZoomPercent;
 int nPreviewCharHeight;
 int nPreviewAveCharWidth;
