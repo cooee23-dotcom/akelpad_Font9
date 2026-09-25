@@ -6916,8 +6916,8 @@ void InitCommon(PLUGINDATA *pd)
   }
   else
   {
-    sizeIcon.cx=16;
-    sizeIcon.cy=16;
+    sizeIcon.cx=24;
+    sizeIcon.cy=24;
   }
 }
 
