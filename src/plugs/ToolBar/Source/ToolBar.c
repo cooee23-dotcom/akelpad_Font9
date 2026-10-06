@@ -194,14 +194,10 @@
 #define TOOLBARBACKGROUNDA   "ToolbarBG"
 #define TOOLBARBACKGROUNDW  L"ToolbarBG"
 
-//SEPARATOR2: solid vertical bar (added)
-#define SEPARATOR2_ID     0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
-#define SEPARATOR2_WIDTH  20      //Bar thickness in pixels
-
-//SEPARATOR3: black vertical bar, the same as a 512x512 icon with a 20px wide bar scaled to the icon size (added)
-#define SEPARATOR3_ID      0xE003
-#define SEPARATOR3_BAR_PX  20     //Bar width in the source image
-#define SEPARATOR3_SRC_PX  512    //Source image size
+//SEPARATOR2: narrow solid black vertical bar (added)
+#define SEPARATOR2_ID           0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
+#define SEPARATOR2_WIDTH_LARGE  4       //Bar width in pixels for large and medium icons (48, 40)
+#define SEPARATOR2_WIDTH_SMALL  3       //Bar width in pixels for small icons (32)
 
 #define ROWSHOW_UNCHANGE -2
 #define ROWSHOW_INVERT   -1
@@ -924,20 +920,15 @@ LRESULT CALLBACK ToolbarBGProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
       {
         if (lpcd->nmcd.dwItemSpec == SEPARATOR2_ID)
         {
-          FillRect(lpcd->nmcd.hdc, &lpcd->nmcd.rc, GetSysColorBrush(COLOR_BTNSHADOW));
-          return CDRF_SKIPDEFAULT;
-        }
-        else if (lpcd->nmcd.dwItemSpec == SEPARATOR3_ID)
-        {
-          //Same proportions as a 512x512 image with a 20px bar, scaled to the icon size
-          RECT rcBar;
-          int nBarWidth=(sizeIcon.cx * SEPARATOR3_BAR_PX + SEPARATOR3_SRC_PX / 2) / SEPARATOR3_SRC_PX;
+          //Black bar over the full width of the slot, as tall as the icons and vertically centred
+          RECT rcBar=lpcd->nmcd.rc;
+          int nOffset=((rcBar.bottom - rcBar.top) - sizeIcon.cy) / 2;
 
-          if (nBarWidth < 1) nBarWidth=1;
-          rcBar.left=lpcd->nmcd.rc.left + ((lpcd->nmcd.rc.right - lpcd->nmcd.rc.left) - nBarWidth) / 2;
-          rcBar.right=rcBar.left + nBarWidth;
-          rcBar.top=lpcd->nmcd.rc.top + ((lpcd->nmcd.rc.bottom - lpcd->nmcd.rc.top) - sizeIcon.cy) / 2;
-          rcBar.bottom=rcBar.top + sizeIcon.cy;
+          if (nOffset > 0)
+          {
+            rcBar.top+=nOffset;
+            rcBar.bottom=rcBar.top + sizeIcon.cy;
+          }
           FillRect(lpcd->nmcd.hdc, &rcBar, (HBRUSH)GetStockObject(BLACK_BRUSH));
           return CDRF_SKIPDEFAULT;
         }
@@ -1441,7 +1432,7 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
         //Special item
         if (!xstrcmpW(wszButtonItem, L"SEPARATOR2"))
         {
-          //Added: solid vertical bar, SEPARATOR2_WIDTH pixels thick (painted in NM_CUSTOMDRAW)
+          //Added: narrow solid bar (width set in SetToolbarButtons, painted in NM_CUSTOMDRAW)
           if (bInRow)
           {
             if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
@@ -1455,29 +1446,6 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
               //custom-draw notifications for buttons, and the width is set in SetToolbarButtons.
               lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
               lpButton->tbb.idCommand=SEPARATOR2_ID;
-              lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
-              lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
-              lpButton->tbb.dwData=0;
-              lpButton->tbb.iString=0;
-            }
-          }
-          bPrevSeparator=FALSE;
-          bMethod=TRUE;
-        }
-        else if (!xstrcmpW(wszButtonItem, L"SEPARATOR3"))
-        {
-          //Added: normal-width slot with a thin black bar, painted in NM_CUSTOMDRAW
-          if (bInRow)
-          {
-            if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
-            {
-              lpLastButton=lpButton;
-              if (lpRowItem && !lpRowItem->lpFirstToolbarItem)
-                lpRowItem->lpFirstToolbarItem=lpButton;
-              lpButton->nTextOffset=(int)(wpLineBegin - wpTextBegin);
-
-              lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
-              lpButton->tbb.idCommand=SEPARATOR3_ID;
               lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
               lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
               lpButton->tbb.dwData=0;
@@ -2046,7 +2014,7 @@ void SetToolbarButtons(STACKTOOLBAR *hStack)
       xmemset(&tbi, 0, sizeof(TBBUTTONINFOW));
       tbi.cbSize=sizeof(TBBUTTONINFOW);
       tbi.dwMask=TBIF_SIZE;
-      tbi.cx=(WORD)SEPARATOR2_WIDTH;
+      tbi.cx=(WORD)(sizeIcon.cx > 32?SEPARATOR2_WIDTH_LARGE:SEPARATOR2_WIDTH_SMALL);
       SendMessage(hToolbar, TB_SETBUTTONINFOW, SEPARATOR2_ID, (LPARAM)&tbi);
     }
   }
