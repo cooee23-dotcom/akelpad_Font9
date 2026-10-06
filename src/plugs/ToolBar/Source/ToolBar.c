@@ -2001,7 +2001,7 @@ void SetToolbarButtons(STACKTOOLBAR *hStack)
       //Added: force SEPARATOR2 width
       TBBUTTONINFOW tbi;
 
-      ZeroMemory(&tbi, sizeof(tbi));
+      xmemset(&tbi, 0, sizeof(TBBUTTONINFOW));
       tbi.cbSize=sizeof(TBBUTTONINFOW);
       tbi.dwMask=TBIF_SIZE;
       tbi.cx=(WORD)SEPARATOR2_WIDTH;
