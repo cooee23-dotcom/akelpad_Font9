@@ -1432,10 +1432,12 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
                 lpRowItem->lpFirstToolbarItem=lpButton;
               lpButton->nTextOffset=(int)(wpLineBegin - wpTextBegin);
 
-              lpButton->tbb.iBitmap=SEPARATOR2_WIDTH;  //For TBSTYLE_SEP iBitmap is the width
+              //Created as a disabled, image-less button (not TBSTYLE_SEP): the toolbar always sends
+              //custom-draw notifications for buttons, and the width is set in SetToolbarButtons.
+              lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
               lpButton->tbb.idCommand=SEPARATOR2_ID;
-              lpButton->tbb.fsState=0;
-              lpButton->tbb.fsStyle=TBSTYLE_SEP;
+              lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
+              lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
               lpButton->tbb.dwData=0;
               lpButton->tbb.iString=0;
             }
@@ -1993,6 +1995,18 @@ void SetToolbarButtons(STACKTOOLBAR *hStack)
 
     nMaxRowWidth=max(nRowWidth, nMaxRowWidth);
     SendMessage(hToolbar, TB_ADDBUTTONS, 1, (LPARAM)&lpButton->tbb);
+
+    if (lpButton->tbb.idCommand == SEPARATOR2_ID)
+    {
+      //Added: force SEPARATOR2 width
+      TBBUTTONINFOW tbi;
+
+      ZeroMemory(&tbi, sizeof(tbi));
+      tbi.cbSize=sizeof(TBBUTTONINFOW);
+      tbi.dwMask=TBIF_SIZE;
+      tbi.cx=(WORD)SEPARATOR2_WIDTH;
+      SendMessage(hToolbar, TB_SETBUTTONINFOW, SEPARATOR2_ID, (LPARAM)&tbi);
+    }
   }
 
   if (nToolbarSide == TBSIDE_LEFT || nToolbarSide == TBSIDE_RIGHT)
