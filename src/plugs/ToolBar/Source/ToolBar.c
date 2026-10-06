@@ -198,6 +198,11 @@
 #define SEPARATOR2_ID     0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
 #define SEPARATOR2_WIDTH  20      //Bar thickness in pixels
 
+//SEPARATOR3: black vertical bar, the same as a 512x512 icon with a 20px wide bar scaled to the icon size (added)
+#define SEPARATOR3_ID      0xE003
+#define SEPARATOR3_BAR_PX  20     //Bar width in the source image
+#define SEPARATOR3_SRC_PX  512    //Source image size
+
 #define ROWSHOW_UNCHANGE -2
 #define ROWSHOW_INVERT   -1
 #define ROWSHOW_OFF       0
@@ -922,6 +927,20 @@ LRESULT CALLBACK ToolbarBGProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
           FillRect(lpcd->nmcd.hdc, &lpcd->nmcd.rc, GetSysColorBrush(COLOR_BTNSHADOW));
           return CDRF_SKIPDEFAULT;
         }
+        else if (lpcd->nmcd.dwItemSpec == SEPARATOR3_ID)
+        {
+          //Same proportions as a 512x512 image with a 20px bar, scaled to the icon size
+          RECT rcBar;
+          int nBarWidth=(sizeIcon.cx * SEPARATOR3_BAR_PX + SEPARATOR3_SRC_PX / 2) / SEPARATOR3_SRC_PX;
+
+          if (nBarWidth < 1) nBarWidth=1;
+          rcBar.left=lpcd->nmcd.rc.left + ((lpcd->nmcd.rc.right - lpcd->nmcd.rc.left) - nBarWidth) / 2;
+          rcBar.right=rcBar.left + nBarWidth;
+          rcBar.top=lpcd->nmcd.rc.top + ((lpcd->nmcd.rc.bottom - lpcd->nmcd.rc.top) - sizeIcon.cy) / 2;
+          rcBar.bottom=rcBar.top + sizeIcon.cy;
+          FillRect(lpcd->nmcd.hdc, &rcBar, (HBRUSH)GetStockObject(BLACK_BRUSH));
+          return CDRF_SKIPDEFAULT;
+        }
       }
       return CDRF_DODEFAULT;
     }
@@ -1436,6 +1455,29 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
               //custom-draw notifications for buttons, and the width is set in SetToolbarButtons.
               lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
               lpButton->tbb.idCommand=SEPARATOR2_ID;
+              lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
+              lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
+              lpButton->tbb.dwData=0;
+              lpButton->tbb.iString=0;
+            }
+          }
+          bPrevSeparator=FALSE;
+          bMethod=TRUE;
+        }
+        else if (!xstrcmpW(wszButtonItem, L"SEPARATOR3"))
+        {
+          //Added: normal-width slot with a thin black bar, painted in NM_CUSTOMDRAW
+          if (bInRow)
+          {
+            if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
+            {
+              lpLastButton=lpButton;
+              if (lpRowItem && !lpRowItem->lpFirstToolbarItem)
+                lpRowItem->lpFirstToolbarItem=lpButton;
+              lpButton->nTextOffset=(int)(wpLineBegin - wpTextBegin);
+
+              lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
+              lpButton->tbb.idCommand=SEPARATOR3_ID;
               lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
               lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
               lpButton->tbb.dwData=0;
