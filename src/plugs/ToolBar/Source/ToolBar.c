@@ -194,6 +194,10 @@
 #define TOOLBARBACKGROUNDA   "ToolbarBG"
 #define TOOLBARBACKGROUNDW  L"ToolbarBG"
 
+//SEPARATOR2: solid vertical bar (added)
+#define SEPARATOR2_ID     0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
+#define SEPARATOR2_WIDTH  20      //Bar thickness in pixels
+
 #define ROWSHOW_UNCHANGE -2
 #define ROWSHOW_INVERT   -1
 #define ROWSHOW_OFF       0
@@ -904,7 +908,24 @@ LRESULT CALLBACK ToolbarBGProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
   }
   else if (uMsg == WM_NOTIFY)
   {
-    if (((NMHDR *)lParam)->code == TTN_GETDISPINFOA)
+    if (((NMHDR *)lParam)->hwndFrom == hToolbar && ((NMHDR *)lParam)->code == NM_CUSTOMDRAW)
+    {
+      //Added: paint SEPARATOR2 as a solid bar
+      LPNMTBCUSTOMDRAW lpcd=(LPNMTBCUSTOMDRAW)lParam;
+
+      if (lpcd->nmcd.dwDrawStage == CDDS_PREPAINT)
+        return CDRF_NOTIFYITEMDRAW;
+      if (lpcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+      {
+        if (lpcd->nmcd.dwItemSpec == SEPARATOR2_ID)
+        {
+          FillRect(lpcd->nmcd.hdc, &lpcd->nmcd.rc, GetSysColorBrush(COLOR_BTNSHADOW));
+          return CDRF_SKIPDEFAULT;
+        }
+      }
+      return CDRF_DODEFAULT;
+    }
+    else if (((NMHDR *)lParam)->code == TTN_GETDISPINFOA)
     {
       TOOLBARITEM *lpButton;
 
@@ -1399,7 +1420,30 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
       if (!bQuote)
       {
         //Special item
-        if (!xstrcmpW(wszButtonItem, L"SEPARATOR") ||
+        if (!xstrcmpW(wszButtonItem, L"SEPARATOR2"))
+        {
+          //Added: solid vertical bar, SEPARATOR2_WIDTH pixels thick (painted in NM_CUSTOMDRAW)
+          if (bInRow)
+          {
+            if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
+            {
+              lpLastButton=lpButton;
+              if (lpRowItem && !lpRowItem->lpFirstToolbarItem)
+                lpRowItem->lpFirstToolbarItem=lpButton;
+              lpButton->nTextOffset=(int)(wpLineBegin - wpTextBegin);
+
+              lpButton->tbb.iBitmap=SEPARATOR2_WIDTH;  //For TBSTYLE_SEP iBitmap is the width
+              lpButton->tbb.idCommand=SEPARATOR2_ID;
+              lpButton->tbb.fsState=0;
+              lpButton->tbb.fsStyle=TBSTYLE_SEP;
+              lpButton->tbb.dwData=0;
+              lpButton->tbb.iString=0;
+            }
+          }
+          bPrevSeparator=FALSE;
+          bMethod=TRUE;
+        }
+        else if (!xstrcmpW(wszButtonItem, L"SEPARATOR") ||
             !xstrcmpW(wszButtonItem, L"SEPARATOR1"))
         {
           if (bInRow && (!bPrevSeparator || !xstrcmpW(wszButtonItem, L"SEPARATOR")))
