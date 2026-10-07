@@ -198,6 +198,9 @@
 #define SEPARATOR2_ID           0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
 #define SEPARATOR2_WIDTH_LARGE  4       //Bar width in pixels for large and medium icons (48, 40)
 #define SEPARATOR2_WIDTH_SMALL  3       //Bar width in pixels for small icons (32)
+#ifndef TBIF_BYINDEX
+  #define TBIF_BYINDEX  0x80000000
+#endif
 
 #define ROWSHOW_UNCHANGE -2
 #define ROWSHOW_INVERT   -1
@@ -2013,9 +2016,10 @@ void SetToolbarButtons(STACKTOOLBAR *hStack)
 
       xmemset(&tbi, 0, sizeof(TBBUTTONINFOW));
       tbi.cbSize=sizeof(TBBUTTONINFOW);
-      tbi.dwMask=TBIF_SIZE;
+      tbi.dwMask=TBIF_SIZE|TBIF_BYINDEX;
       tbi.cx=(WORD)(sizeIcon.cx > 32?SEPARATOR2_WIDTH_LARGE:SEPARATOR2_WIDTH_SMALL);
-      SendMessage(hToolbar, TB_SETBUTTONINFOW, SEPARATOR2_ID, (LPARAM)&tbi);
+      //All SEPARATOR2 buttons share one command ID, so address the button just added by index
+      SendMessage(hToolbar, TB_SETBUTTONINFOW, SendMessage(hToolbar, TB_BUTTONCOUNT, 0, 0) - 1, (LPARAM)&tbi);
     }
   }
 
