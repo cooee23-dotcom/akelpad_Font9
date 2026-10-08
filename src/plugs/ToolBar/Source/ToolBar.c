@@ -194,18 +194,18 @@
 #define TOOLBARBACKGROUNDA   "ToolbarBG"
 #define TOOLBARBACKGROUNDW  L"ToolbarBG"
 
-//SEPARATOR2: narrow solid dark grey vertical bar, optional parameters: SEPARATOR2(width,height) (added)
-#define SEPARATOR2_ID           0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
-#define SEPARATOR2_WIDTH_LARGE  4       //Bar width in pixels for large and medium icons (48, 40)
-#define SEPARATOR2_WIDTH_SMALL  3       //Bar width in pixels for small icons (32)
-#define SEPARATOR2_MAX          1000    //Largest accepted width or height parameter
-#define SEPARATOR2_COLOR        RGB(64, 64, 64)  //Bar colour (dark grey)
-
-//SEPARATOR3: blank space between icons, width is a fraction of the icon width, SEPARATOR3(1/2), SEPARATOR3(1/3), SEPARATOR3(1/1) (added)
-#define SEPARATOR3_ID           0xE003  //Unique command ID, must not clash with button IDs
-#define SEPARATOR3_DEFAULT_NUM  1       //Default fraction numerator
-#define SEPARATOR3_DEFAULT_DEN  2       //Default fraction denominator
-#define SEPARATOR3_MAX          20      //Largest accepted numerator or denominator
+//SEPARATOR2: blank space with a vertical bar in the centre (added)
+//Syntax: SEPARATOR2(fraction, thickness), e.g. SEPARATOR2(1/2, 3). Both parameters are optional.
+//  fraction  - space width as a fraction of the icon width (1/2, 1/3, 1/1, ...)
+//  thickness - bar thickness in pixels
+#define SEPARATOR2_ID             0xE002  //Unique command ID, must not clash with button IDs (1, 2, 3...)
+#define SEPARATOR2_DEFAULT_NUM    1       //Default fraction numerator
+#define SEPARATOR2_DEFAULT_DEN    2       //Default fraction denominator
+#define SEPARATOR2_THICK_LARGE    4       //Default bar thickness for large and medium icons (48, 40)
+#define SEPARATOR2_THICK_SMALL    3       //Default bar thickness for small icons (32)
+#define SEPARATOR2_MAX_FRACTION   20      //Largest accepted numerator or denominator
+#define SEPARATOR2_MAX_THICKNESS  1000    //Largest accepted thickness
+#define SEPARATOR2_COLOR          RGB(64, 64, 64)  //Bar colour (dark grey)
 #ifndef TBIF_BYINDEX
   #define TBIF_BYINDEX  0x80000000
 #endif
@@ -922,7 +922,7 @@ LRESULT CALLBACK ToolbarBGProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
   {
     if (((NMHDR *)lParam)->hwndFrom == hToolbar && ((NMHDR *)lParam)->code == NM_CUSTOMDRAW)
     {
-      //Added: paint SEPARATOR2 as a solid bar
+      //Added: paint the vertical bar of SEPARATOR2
       LPNMTBCUSTOMDRAW lpcd=(LPNMTBCUSTOMDRAW)lParam;
 
       if (lpcd->nmcd.dwDrawStage == CDDS_PREPAINT)
@@ -931,30 +931,30 @@ LRESULT CALLBACK ToolbarBGProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
       {
         if (lpcd->nmcd.dwItemSpec == SEPARATOR2_ID)
         {
-          //Dark grey bar over the full width of the slot. Height: parameter or icon height, vertically centred
+          //Bar is centred in the space, as tall as the icons and vertically centred
           RECT rcBar=lpcd->nmcd.rc;
-          int nBarHeight=HIWORD(lpcd->nmcd.lItemlParam);
+          int nThick=HIWORD(lpcd->nmcd.lItemlParam);
           int nOffset;
           HBRUSH hBrush;
 
-          if (!nBarHeight)
-            nBarHeight=sizeIcon.cy;
-          nOffset=((rcBar.bottom - rcBar.top) - nBarHeight) / 2;
+          if (!nThick)
+            nThick=(sizeIcon.cx > 32)?SEPARATOR2_THICK_LARGE:SEPARATOR2_THICK_SMALL;
+          if (nThick > rcBar.right - rcBar.left)
+            nThick=rcBar.right - rcBar.left;
+          rcBar.left+=((rcBar.right - rcBar.left) - nThick) / 2;
+          rcBar.right=rcBar.left + nThick;
+
+          nOffset=((rcBar.bottom - rcBar.top) - sizeIcon.cy) / 2;
           if (nOffset > 0)
           {
             rcBar.top+=nOffset;
-            rcBar.bottom=rcBar.top + nBarHeight;
+            rcBar.bottom=rcBar.top + sizeIcon.cy;
           }
           if (hBrush=CreateSolidBrush(SEPARATOR2_COLOR))
           {
             FillRect(lpcd->nmcd.hdc, &rcBar, hBrush);
             DeleteObject(hBrush);
           }
-          return CDRF_SKIPDEFAULT;
-        }
-        if (lpcd->nmcd.dwItemSpec == SEPARATOR3_ID)
-        {
-          //Blank space: draw nothing
           return CDRF_SKIPDEFAULT;
         }
       }
@@ -1195,13 +1195,11 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
   BOOL bQuote;
   BOOL bMethod;
   BOOL bSeparator2;
-  BOOL bSeparator3;
-  INT_PTR nSep3Num;
-  INT_PTR nSep3Den;
   const wchar_t *wpWordBegin;
   const wchar_t *wpSep2Param;
-  INT_PTR nSep2Width;
-  INT_PTR nSep2Height;
+  INT_PTR nSep2Num;
+  INT_PTR nSep2Den;
+  INT_PTR nSep2Thick;
   int nSep2I;
   BOOL bPrevSeparator=FALSE;
   BOOL bInRow=TRUE;
@@ -1463,7 +1461,7 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
       while (*wpWordBegin == L' ' || *wpWordBegin == L'\t') ++wpWordBegin;
       GetWord(wpCount, wszButtonItem, MAX_PATH, &wpCount, &bQuote);
 
-      //Added: detect "SEPARATOR2" with or without "(width,height)"
+      //Added: detect "SEPARATOR2" with or without "(fraction, thickness)"
       bSeparator2=FALSE;
       if (!bQuote)
       {
@@ -1472,40 +1470,50 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
           bSeparator2=TRUE;
       }
 
-      //Added: detect "SEPARATOR3" with or without "(n/d)"
-      bSeparator3=FALSE;
-      if (!bQuote)
-      {
-        for (nSep2I=0; L"SEPARATOR3"[nSep2I] && wszButtonItem[nSep2I] == L"SEPARATOR3"[nSep2I]; ++nSep2I);
-        if (!L"SEPARATOR3"[nSep2I] && (wszButtonItem[nSep2I] == L'\0' || wszButtonItem[nSep2I] == L'('))
-          bSeparator3=TRUE;
-      }
-
       if (!bQuote)
       {
         //Special item
         if (bSeparator2)
         {
-          //Added: optional parameters (width,height), both optional, 0 or omitted = default
-          nSep2Width=0;
-          nSep2Height=0;
+          //Added: SEPARATOR2(fraction, thickness), both optional, e.g. SEPARATOR2(1/2, 3) or SEPARATOR2(,3)
+          nSep2Num=SEPARATOR2_DEFAULT_NUM;
+          nSep2Den=SEPARATOR2_DEFAULT_DEN;
+          nSep2Thick=0;
           wpSep2Param=wpWordBegin + 10;
           while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
           if (*wpSep2Param == L'(')
           {
             ++wpSep2Param;
             while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
+
+            //Fraction
             if (*wpSep2Param >= L'0' && *wpSep2Param <= L'9')
-              nSep2Width=xatoiW(wpSep2Param, &wpSep2Param);
-            while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
+            {
+              nSep2Num=xatoiW(wpSep2Param, &wpSep2Param);
+              nSep2Den=1;
+              while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
+              if (*wpSep2Param == L'/')
+              {
+                ++wpSep2Param;
+                while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
+                if (*wpSep2Param >= L'0' && *wpSep2Param <= L'9')
+                  nSep2Den=xatoiW(wpSep2Param, &wpSep2Param);
+                else
+                  nSep2Den=0;
+                while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
+              }
+            }
+
+            //Thickness
             if (*wpSep2Param == L',')
             {
               ++wpSep2Param;
               while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
               if (*wpSep2Param >= L'0' && *wpSep2Param <= L'9')
-                nSep2Height=xatoiW(wpSep2Param, &wpSep2Param);
+                nSep2Thick=xatoiW(wpSep2Param, &wpSep2Param);
               while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
             }
+
             if (*wpSep2Param != L')')
             {
               nMessageID=STRID_PARSEMSG_NOCLOSEPARENTHESIS;
@@ -1513,11 +1521,14 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
               goto Error;
             }
             wpCount=wpSep2Param + 1;
+            if (nSep2Num < 1 || nSep2Num > SEPARATOR2_MAX_FRACTION || nSep2Den < 1 || nSep2Den > SEPARATOR2_MAX_FRACTION)
+            {
+              nMessageID=STRID_PARSEMSG_WRONGPARAMCOUNT;
+              goto Error;
+            }
+            if (nSep2Thick > SEPARATOR2_MAX_THICKNESS) nSep2Thick=SEPARATOR2_MAX_THICKNESS;
           }
-          if (nSep2Width > SEPARATOR2_MAX) nSep2Width=SEPARATOR2_MAX;
-          if (nSep2Height > SEPARATOR2_MAX) nSep2Height=SEPARATOR2_MAX;
 
-          //Added: narrow solid bar (width set in SetToolbarButtons, painted in NM_CUSTOMDRAW)
           if (bInRow)
           {
             if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
@@ -1533,67 +1544,8 @@ BOOL CreateToolbarData(STACKTOOLBAR *hStack, const wchar_t *wpText)
               lpButton->tbb.idCommand=SEPARATOR2_ID;
               lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
               lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
-              lpButton->tbb.dwData=MAKELONG((WORD)nSep2Width, (WORD)nSep2Height);  //Read back as lItemlParam in custom draw
-              lpButton->tbb.iString=0;
-            }
-          }
-          bPrevSeparator=FALSE;
-          bMethod=TRUE;
-        }
-        else if (bSeparator3)
-        {
-          //Added: blank space, width = icon width * numerator / denominator, e.g. SEPARATOR3(1/2)
-          nSep3Num=SEPARATOR3_DEFAULT_NUM;
-          nSep3Den=SEPARATOR3_DEFAULT_DEN;
-          wpSep2Param=wpWordBegin + 10;
-          while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
-          if (*wpSep2Param == L'(')
-          {
-            ++wpSep2Param;
-            while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
-            if (*wpSep2Param >= L'0' && *wpSep2Param <= L'9')
-            {
-              nSep3Num=xatoiW(wpSep2Param, &wpSep2Param);
-              nSep3Den=1;
-              while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
-              if (*wpSep2Param == L'/')
-              {
-                ++wpSep2Param;
-                while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
-                if (*wpSep2Param >= L'0' && *wpSep2Param <= L'9')
-                  nSep3Den=xatoiW(wpSep2Param, &wpSep2Param);
-                else
-                  nSep3Den=0;
-                while (*wpSep2Param == L' ' || *wpSep2Param == L'\t') ++wpSep2Param;
-              }
-            }
-            if (*wpSep2Param != L')')
-            {
-              nMessageID=STRID_PARSEMSG_NOCLOSEPARENTHESIS;
-              wpCount=wpSep2Param;
-              goto Error;
-            }
-            wpCount=wpSep2Param + 1;
-            if (nSep3Num < 1 || nSep3Num > SEPARATOR3_MAX || nSep3Den < 1 || nSep3Den > SEPARATOR3_MAX)
-            {
-              nMessageID=STRID_PARSEMSG_WRONGPARAMCOUNT;
-              goto Error;
-            }
-          }
-          if (bInRow)
-          {
-            if (lpButton=StackInsertBeforeButton(hStack, lpNextRowItemFirstButton))
-            {
-              lpLastButton=lpButton;
-              if (lpRowItem && !lpRowItem->lpFirstToolbarItem)
-                lpRowItem->lpFirstToolbarItem=lpButton;
-              lpButton->nTextOffset=(int)(wpLineBegin - wpTextBegin);
-
-              lpButton->tbb.iBitmap=-2;  //I_IMAGENONE
-              lpButton->tbb.idCommand=SEPARATOR3_ID;
-              lpButton->tbb.fsState=0;   //Not enabled, so it can't be clicked or highlighted
-              lpButton->tbb.fsStyle=TBSTYLE_BUTTON;
-              lpButton->tbb.dwData=MAKELONG((WORD)nSep3Num, (WORD)nSep3Den);
+              //Numerator, denominator and thickness, read back as lItemlParam in custom draw
+              lpButton->tbb.dwData=MAKELONG(MAKEWORD((BYTE)nSep2Num, (BYTE)nSep2Den), (WORD)nSep2Thick);
               lpButton->tbb.iString=0;
             }
           }
@@ -2153,31 +2105,22 @@ void SetToolbarButtons(STACKTOOLBAR *hStack)
 
     if (lpButton->tbb.idCommand == SEPARATOR2_ID)
     {
-      //Added: force SEPARATOR2 width
+      //Added: space width = icon width * numerator / denominator
       TBBUTTONINFOW tbi;
+      int nNum=LOBYTE(LOWORD(lpButton->tbb.dwData));
+      int nDen=HIBYTE(LOWORD(lpButton->tbb.dwData));
+      int nWidth;
+
+      if (nDen < 1) nDen=1;
+      nWidth=(sizeIcon.cx * nNum + nDen / 2) / nDen;
+      if (nWidth < 1) nWidth=1;
 
       xmemset(&tbi, 0, sizeof(TBBUTTONINFOW));
       tbi.cbSize=sizeof(TBBUTTONINFOW);
       tbi.dwMask=TBIF_SIZE|TBIF_BYINDEX;
-      tbi.cx=LOWORD(lpButton->tbb.dwData);
-      if (!tbi.cx)
-        tbi.cx=(WORD)(sizeIcon.cx > 32?SEPARATOR2_WIDTH_LARGE:SEPARATOR2_WIDTH_SMALL);
+      tbi.cx=(WORD)nWidth;
       //All SEPARATOR2 buttons share one command ID, so address the button just added by index
       SendMessage(hToolbar, TB_SETBUTTONINFOW, SendMessage(hToolbar, TB_BUTTONCOUNT, 0, 0) - 1, (LPARAM)&tbi);
-    }
-    else if (lpButton->tbb.idCommand == SEPARATOR3_ID)
-    {
-      //Added: blank space, width = icon width * numerator / denominator
-      TBBUTTONINFOW tbi3;
-      int nSep3Width;
-
-      xmemset(&tbi3, 0, sizeof(TBBUTTONINFOW));
-      tbi3.cbSize=sizeof(TBBUTTONINFOW);
-      tbi3.dwMask=TBIF_SIZE|TBIF_BYINDEX;
-      nSep3Width=(sizeIcon.cx * LOWORD(lpButton->tbb.dwData) + HIWORD(lpButton->tbb.dwData) / 2) / HIWORD(lpButton->tbb.dwData);
-      if (nSep3Width < 1) nSep3Width=1;
-      tbi3.cx=(WORD)nSep3Width;
-      SendMessage(hToolbar, TB_SETBUTTONINFOW, SendMessage(hToolbar, TB_BUTTONCOUNT, 0, 0) - 1, (LPARAM)&tbi3);
     }
   }
 
