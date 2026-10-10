@@ -1564,7 +1564,7 @@ BOOL DoFileOpen()
     ofn.hInstance      =hLangModule;
     ofn.lpstrFile      =wszOfnFileList;
     ofn.lpstrFilter    =wszFileFilter;
-    ofn.nFilterIndex   =2;
+    ofn.nFilterIndex   =1;
     ofn.nMaxFile       =OPENFILELIST_SIZE;
     ofn.lpstrInitialDir=wszOpenDir;
     ofn.lpstrDefExt    =NULL;
@@ -1805,7 +1805,7 @@ BOOL DoFileSaveAs(int nDialogCodePage, BOOL bDialogBOM)
     ofn.hInstance      =hLangModule;
     ofn.lpstrFile      =wszOfnFileList;
     ofn.lpstrFilter    =wszFileFilter;
-    ofn.nFilterIndex   =2;
+    ofn.nFilterIndex   =1;
     ofn.nMaxFile       =MAX_PATH;
     ofn.lpstrInitialDir=wszSaveDir;
     ofn.lpstrDefExt    =moCur.wszDefaultSaveExt;
